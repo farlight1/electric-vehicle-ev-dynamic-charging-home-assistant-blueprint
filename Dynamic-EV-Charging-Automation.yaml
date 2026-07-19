@@ -224,6 +224,7 @@ action:
       sensor_house_power_entity: !input sensor_house_power
       charging_current_entity: !input charging_current
       sensor_charging_entity: !input sensor_charging
+      charger_toggle_entity: !input charger_toggle
       charging_current_value: "{{ states(charging_current_entity) | float(0) }}"
       grid_power: "{{ states(sensor_house_power_entity) | float(0) }}"
       total_consumption: "{{ states(sensor_house_power_entity) | float(0) }}"
@@ -263,11 +264,12 @@ action:
     target:
       entity_id: !input charger_toggle
     data:
-      option: |-
+      option: >-
+        {% set opciones_validas = state_attr(charger_toggle_entity, 'options') | default([]) %}
         {% if actual_free_power / voltage >= min_amps %}
-          Start charging
+          {{ 'start_charging' if 'start_charging' in opciones_validas else 'Start charging' }}
         {% else %}
-          Stop charging
+          {{ 'stop_charging' if 'stop_charging' in opciones_validas else 'Stop charging' }}
         {% endif %}
 
   - repeat:
