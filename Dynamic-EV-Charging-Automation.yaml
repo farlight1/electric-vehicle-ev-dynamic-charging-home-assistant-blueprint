@@ -1,6 +1,15 @@
 blueprint:
-  name: Dynamic EV Charging Automation v2.2
+  name: Dynamic EV Charging Automation v2.4
   description: >
+    **v2.4 - Safe Resume & Memory Tracking**
+    - The automation will now NEVER start the charge automatically just because the car is plugged in.
+    - Added an optional `input_boolean` helper input to "remember" if the automation paused the charge.
+    - It will only auto-resume charging if it was the one that stopped it due to low power.
+
+    **v2.3 - Improved real power tracking & safe toggling**
+    - Added optional real-time power (W) and current (A) sensors for accurate load calculation.
+    - Conditional start/stop to prevent redundant network calls.
+
     **v2.2 - Optional location tracker**
     - The Car/Person Location Tracker is now optional
     - Leave it empty to disable location-based checks
@@ -26,12 +35,7 @@ blueprint:
   input:
     interval:
       name: Adjustment Interval (minutes)
-      description: >
-        Interval in minutes to adjust the charging amperage dynamically.
-
-        The automation will check the total household power consumption at this interval and adjust the EV charging current accordingly. A shorter interval (e.g., 1 minute) allows faster reactions to power fluctuations, while a longer interval (e.g., 5 minutes) reduces the number of adjustments but may respond more slowly to changes in home energy use.
-
-        Choose the interval based on how frequently you want the system to update the charging current in response to changes in household power consumption.
+      description: Interval in minutes to adjust the charging amperage dynamically.
       default: /1
       selector:
         select:
@@ -44,48 +48,53 @@ blueprint:
               value: /5
     device_tracker:
       name: Car/Person Location Tracker (Optional)
-      description: >
-        Optional entity that determines whether the electric vehicle (EV) is at home.
-
-        Leave this field empty to disable the location check entirely. This is useful when:
-        - Your charger may serve cars not linked to the configured tracker (guests, family vehicles, etc.)
-        - You own more than one car and don't want to tie regulation to a specific person/vehicle
-        - You want the automation to regulate based purely on the charging sensor state
-
-        When set, the automation will only adjust the charging current if the tracked entity is at "home".
+      description: Optional entity that determines whether the electric vehicle (EV) is at home.
       default: ""
       selector:
         entity:
           domain: device_tracker
     sensor_charging:
       name: EV Charging Sensor
-      description: >
-        Sensor that detects whether the electric vehicle (EV) is currently charging.
-
-        The automation will only adjust the charging amperage if this sensor indicates that the EV is actively charging.
-
-        If the vehicle is at home but not plugged in or has already completed charging, no changes will be made to the charging current.
+      description: Sensor that detects whether the electric vehicle (EV) is currently charging.
       default: sensor.ev_charger_estado
       selector:
         entity:
           domain: sensor
     charger_toggle:
       name: EV Charging Toggle (Start/Stop)
-      description: >
-        Select entity that controls the charging state of the EV charger.
-
-        This entity should support options like "Start charging", "Stop charging", or similar commands.
-
-        When the calculated amperage falls below the minimum threshold, the automation will use this entity to stop charging instead of setting amperage to 0.
-
-        When power becomes available again, it will restart charging and set the appropriate amperage.
+      description: Select entity that controls the charging state of the EV charger.
       default: select.ev_charger_toggle_charging
       selector:
         entity:
           domain: select
+    pause_helper:
+      name: Ayudante de Memoria de Pausa (input_boolean)
+      description: >
+        **CRÍTICO PARA LA SEGURIDAD:** Selecciona aquí el Ayudante de tipo 'Interruptor' (input_boolean) que has creado. 
+        Servirá de "memoria" para que la automatización sepa si fue ella quien detuvo la carga. Así, nunca iniciará la carga automáticamente al enchufar el coche, solo la reanudará si la pausó previamente.
+      default: ""
+      selector:
+        entity:
+          domain: input_boolean
+    sensor_charger_power:
+      name: Real Charger Power Sensor (Optional)
+      description: Sensor that measures the actual real-time power (W) consumed by the charger. Highly recommended for accuracy.
+      default: ""
+      selector:
+        entity:
+          domain: sensor
+          device_class: power
+    sensor_charger_current:
+      name: Real Charger Current Sensor (Optional)
+      description: Sensor that measures the actual real-time amps (A) used by the charger.
+      default: ""
+      selector:
+        entity:
+          domain: sensor
+          device_class: current
     sensor_house_power:
       name: Total Power Consumption Sensor
-      description: Sensor that measures the total power consumption of the household in real-time.  This value is used to determine the available power for charging the electric vehicle (EV), ensuring that the charging current is dynamically adjusted to prevent exceeding the contracted power limit.
+      description: Sensor that measures the total power consumption of the household in real-time.
       default: sensor.shellyemg3_8cbfea96acd8_em1_power
       selector:
         entity:
@@ -93,7 +102,6 @@ blueprint:
           device_class: power
     max_grid_power_day:
       name: Maximum Grid Power during the day (W)
-      description: The maximum contracted power (in watts) available for your home during daytime hours. This value determines the upper power limit when calculating the available energy for charging the electric vehicle (EV). Set this to **0** if you only want to allow charging during nighttime hours.
       default: 4700
       selector:
         number:
@@ -102,7 +110,6 @@ blueprint:
           step: 100
     max_grid_power_night:
       name: Maximum Grid Power during the night (W)
-      description:   The maximum contracted power (in watts) available for your home during nighttime hours. This value sets the upper power limit when calculating the available energy for charging the electric vehicle (EV). If your electricity provider allows higher power usage at night, you can set a higher value here to optimize charging.
       default: 6200
       selector:
         number:
@@ -111,7 +118,7 @@ blueprint:
           step: 100
     charging_current:
       name: Charging Current Control
-      description: Entity that controls the charging amperage of the electric vehicle (EV). This must be a `number` entity that allows adjusting the charging current dynamically. The automation will modify this value based on the available power in the household, ensuring efficient energy use and preventing overloads.
+      description: Entity that controls the charging amperage of the electric vehicle (EV).
       default: number.ev_charger_set_charge_current
       selector:
         entity:
@@ -127,7 +134,6 @@ blueprint:
           step: 10
     max_amps:
       name: Maximum amps
-      description:   Select the maximum charging current (in amps) that the electric vehicle (EV) should use. The automation will never set the charging amperage above this limit, even if there is enough available power in the household. Set this value according to the specifications of your EV charger and electrical system to ensure safe and optimal charging.
       default: 20
       selector:
         number:
@@ -136,7 +142,6 @@ blueprint:
           step: 1
     min_amps:
       name: Minimum amps
-      description:   Select the minimum charging current (in amps) that the electric vehicle (EV) should use. If the calculated charging amperage falls below this value due to limited available power, the automation will stop charging until more power is available. This helps prevent inefficient low-power charging and ensures the EV charges only when there is sufficient energy available.
       default: 8
       selector:
         number:
@@ -145,7 +150,6 @@ blueprint:
           step: 1
     day_time_days:
       name: Day Time Active Days
-      description: Select the days of the week when the 'day_time' mode should be active. During these selected days, the automation will apply the maximum contracted power for daytime charging. If your electricity provider offers different power limits on specific days, you can configure this accordingly to optimize charging.
       default:
         - mon
         - tue
@@ -172,7 +176,6 @@ blueprint:
               value: "sun"
     day_time_start:
       name: Day Time Start Hour
-      description: Choose the starting hour for 'day_time' mode. At this time, the automation will switch to the maximum contracted power for daytime charging. This is useful if your electricity provider allows higher power usage during specific hours or if you want to prioritize charging during the day. Make sure this time aligns with your electricity plan to optimize energy consumption.
       default: 8
       selector:
         number:
@@ -181,7 +184,6 @@ blueprint:
           step: 1
     day_time_end:
       name: Day Time End Hour
-      description: Choose the ending hour for 'day_time' mode. After this time, the automation will switch to nighttime settings, adjusting the charging power accordingly.
       default: 24
       selector:
         number:
@@ -221,16 +223,25 @@ action:
       max_amps: !input max_amps
       min_amps: !input min_amps
       sensor_house_power_entity: !input sensor_house_power
+      sensor_charger_power_entity: !input sensor_charger_power
+      sensor_charger_current_entity: !input sensor_charger_current
       charging_current_entity: !input charging_current
       sensor_charging_entity: !input sensor_charging
       charger_toggle_entity: !input charger_toggle
+      pause_helper_entity: !input pause_helper
       charging_current_value: "{{ states(charging_current_entity) | float(0) }}"
       grid_power: "{{ states(sensor_house_power_entity) | float(0) }}"
       total_consumption: "{{ states(sensor_house_power_entity) | float(0) }}"
       charger_consumption: |-
         {% set state = states(sensor_charging_entity) | lower %}
         {% if state in ['charging', 'plugged_in', 'waiting_for_authorization', 'waiting'] %}
-          {{ charging_current_value * voltage }}
+          {% if sensor_charger_power_entity != "" and states(sensor_charger_power_entity) not in ['unknown', 'unavailable'] %}
+            {{ states(sensor_charger_power_entity) | float(0) }}
+          {% elif sensor_charger_current_entity != "" and states(sensor_charger_current_entity) not in ['unknown', 'unavailable'] %}
+            {{ states(sensor_charger_current_entity) | float(0) * voltage }}
+          {% else %}
+            {{ charging_current_value * voltage }}
+          {% endif %}
         {% else %}
           0
         {% endif %}
@@ -247,7 +258,6 @@ action:
         {% else %}
           {{ [0, max_grid_power_night - total_consumption + charger_consumption] | max }}
         {% endif %}
-      # Compute new_target_value once before starting the adjustment loop
       new_target_value: >-
         {% set raw_amps = (actual_free_power / voltage) | float %}
         {% if raw_amps > max_amps %}
@@ -258,23 +268,76 @@ action:
           {{ raw_amps | int }}
         {% endif %}
 
-  # First: Control charging state (Start/Stop)
-  - service: select.select_option
-    target:
-      entity_id: !input charger_toggle
-    data:
-      option: >-
-        {% set opciones_validas = state_attr(charger_toggle_entity, 'options') | default([]) %}
-        {% if actual_free_power / voltage >= min_amps %}
-          {{ 'start_charging' if 'start_charging' in opciones_validas else 'Start charging' }}
-        {% else %}
-          {{ 'stop_charging' if 'stop_charging' in opciones_validas else 'Stop charging' }}
-        {% endif %}
+  # First: Control charging state conditionally with Memory Tracker (Start/Stop)
+  - choose:
+      # Option 1: We have enough power, car is NOT charging, AND the automation paused it previously
+      - conditions:
+          - condition: template
+            value_template: >-
+              {% set is_charging = states(sensor_charging_entity) | lower == 'charging' %}
+              {% set enough_power = (actual_free_power / voltage) >= min_amps %}
+              {% if pause_helper_entity not in [none, '', 'none'] %}
+                {{ enough_power and not is_charging and is_state(pause_helper_entity, 'on') }}
+              {% else %}
+                false
+              {% endif %}
+        sequence:
+          - service: select.select_option
+            target:
+              entity_id: !input charger_toggle
+            data:
+              option: >-
+                {% set opciones_validas = state_attr(charger_toggle_entity, 'options') | default([]) %}
+                {{ 'start_charging' if 'start_charging' in opciones_validas else 'Start charging' }}
+          - if:
+              - condition: template
+                value_template: "{{ pause_helper_entity not in [none, '', 'none'] }}"
+            then:
+              - service: input_boolean.turn_off
+                target:
+                  entity_id: !input pause_helper
+
+      # Option 2: We do NOT have enough power but the car IS charging -> Send Stop and Save to Memory
+      - conditions:
+          - condition: template
+            value_template: >-
+              {% set is_charging = states(sensor_charging_entity) | lower == 'charging' %}
+              {% set enough_power = (actual_free_power / voltage) >= min_amps %}
+              {{ not enough_power and is_charging }}
+        sequence:
+          - service: select.select_option
+            target:
+              entity_id: !input charger_toggle
+            data:
+              option: >-
+                {% set opciones_validas = state_attr(charger_toggle_entity, 'options') | default([]) %}
+                {{ 'stop_charging' if 'stop_charging' in opciones_validas else 'Stop charging' }}
+          - if:
+              - condition: template
+                value_template: "{{ pause_helper_entity not in [none, '', 'none'] }}"
+            then:
+              - service: input_boolean.turn_on
+                target:
+                  entity_id: !input pause_helper
+
+      # Option 3: Reset memory if user manually started charging and power is sufficient
+      - conditions:
+          - condition: template
+            value_template: >-
+              {% set is_charging = states(sensor_charging_entity) | lower == 'charging' %}
+              {% set enough_power = (actual_free_power / voltage) >= min_amps %}
+              {% if pause_helper_entity not in [none, '', 'none'] %}
+                {{ enough_power and is_charging and is_state(pause_helper_entity, 'on') }}
+              {% else %}
+                false
+              {% endif %}
+        sequence:
+          - service: input_boolean.turn_off
+            target:
+              entity_id: !input pause_helper
 
   - repeat:
       while:
-        # While the difference between the current charging value and new_target_value is >= 1 A,
-        # continue adjusting the current in steps of 1 amp
         - condition: template
           value_template: >-
             {% set current_amps = states(charging_current_entity) | float %}
