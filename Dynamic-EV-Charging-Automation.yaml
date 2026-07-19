@@ -6,11 +6,11 @@ blueprint:
     - Leave it empty to disable location-based checks
     - Useful for shared chargers, multi-vehicle households, or when
       the charger may serve cars not linked to the configured tracker
-      
+
     **v2.1 - Added case-insensitive charging status support**
     - Added support for "Charging" (capital C) status from ESPhome Tesla BLE
     - Improved status detection to support multiple case variations
-    
+
     **v2.0 - Added start/stop control and fixed power calculation**
     - Added charger toggle control for start/stop
     - Fixed power calculation formula
@@ -21,6 +21,7 @@ blueprint:
     It ensures that the EV charger does not exceed the available power, preventing overloads and optimizing energy usage. The system continuously monitors home power consumption and regulates the charging rate accordingly.
     You can configure two different charging periods (Day and Night) if your electricity contract has varying power limits at different times.
     Depending on what you have exposed in Home Assistant you could target your car or your charger. Works with any EV charger that supports amperage control via Home Assistant.
+
   domain: automation
   input:
     interval:
