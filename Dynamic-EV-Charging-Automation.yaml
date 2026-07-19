@@ -200,13 +200,13 @@ variables:
 condition:
   - condition: and
     conditions:
-      - condition: or
-        conditions:
-          - condition: template
-            value_template: "{{ device_tracker_input in [none, '', 'none'] }}"
-          - condition: state
-            entity_id: !input device_tracker
-            state: home
+      - condition: template
+        value_template: >
+          {% if device_tracker_input in [none, '', 'none'] %}
+            true
+          {% else %}
+            {{ is_state(device_tracker_input, 'home') }}
+          {% endif %}
       - condition: state
         entity_id: !input sensor_charging
         state:
