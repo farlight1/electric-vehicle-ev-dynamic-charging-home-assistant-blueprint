@@ -88,7 +88,7 @@ This is some of the hardware I've used and tested with this automation:
 
 - [Shelly EM Energy Meter](https://amzlink.to/az0UFbhU9htEu)  
 - Tesla car with [Tesla Fleet integration](https://www.home-assistant.io/integrations/tesla_fleet/).  
-  - [Buy your Tesla with a discount through this link](https://ts.la/eduardo432919)  
+  - [Buy your Tesla with a discount through this link](https://ts.la/conchi497824)  
 - [Feyree Type 2 portable 7kW charger](https://s.click.aliexpress.com/e/_opguDAp)  
 - [Feyree Type 2 Wallbox](https://s.click.aliexpress.com/e/_oEFZ75f)  
 
